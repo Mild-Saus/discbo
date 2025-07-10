@@ -26,6 +26,31 @@ intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
+previous_players = set()
+
+async def check_players_loop():
+    await client.wait_until_ready()
+    channel = client.get_channel(CHANNEL_ID)
+    global previous_players
+
+    while not client.is_closed():
+        try:
+            server = JavaServer.lookup(SERVER_IP)
+            status = server.status()
+            sample = status.players.sample or []
+            current_players = set(p.name for p in sample)
+
+            # Check for newly connected players
+            new_players = current_players - previous_players
+            if new_players:
+                for player in new_players:
+                    await channel.send(f"`{player}` d5l 🔥🔥 ")
+            
+            previous_players = current_players
+        except Exception as e:
+            print(f"[ERROR] {e}")
+
+        await asyncio.sleep(15) 
 
 @client.event
 async def on_ready():
@@ -73,4 +98,5 @@ async def on_message(message):
             print(f"[ERROR] {e}")
 
 keep_alive()
+client.loop.create_task(check_players_loop())
 client.run(TOKEN)
