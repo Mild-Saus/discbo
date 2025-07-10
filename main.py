@@ -1,6 +1,21 @@
 import discord
 import os
 from mcstatus import JavaServer
+from flask import Flask
+from threading import Thread
+
+app = Flask('')
+@app.route('/')
+def home():
+    return "I'm alive!"
+
+def run():
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 SERVER_IP = "116.203.149.200:6969"  # Your server IP and port
@@ -57,5 +72,5 @@ async def on_message(message):
             await message.channel.send("Error.")
             print(f"[ERROR] {e}")
 
-
+keep_alive()
 client.run(TOKEN)
