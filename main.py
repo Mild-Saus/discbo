@@ -3,14 +3,20 @@ import os
 from mcstatus import JavaServer
 from flask import Flask
 from threading import Thread
+import asyncio
+import time
 
 app = Flask('')
+
+
 @app.route('/')
 def home():
     return "I'm alive!"
 
+
 def run():
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+
 
 def keep_alive():
     t = Thread(target=run)
@@ -28,29 +34,75 @@ client = discord.Client(intents=intents)
 
 previous_players = set()
 
-async def check_players_loop():
-    await client.wait_until_ready()
-    channel = client.get_channel(CHANNEL_ID)
-    global previous_players
 
-    while not client.is_closed():
-        try:
-            server = JavaServer.lookup(SERVER_IP)
-            status = server.status()
-            sample = status.players.sample or []
-            current_players = set(p.name for p in sample)
+class MyClient(discord.Client):
 
-            # Check for newly connected players
-            new_players = current_players - previous_players
-            if new_players:
-                for player in new_players:
-                    await channel.send(f"`{player}` d5l 🔥🔥 ")
-            
-            previous_players = current_players
-        except Exception as e:
-            print(f"[ERROR] {e}")
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.previous_players = set()
+        self.last_announce = {}  # {player_name: last_announce_timestamp}
 
-        await asyncio.sleep(15) 
+    async def setup_hook(self):
+        self.loop.create_task(self.check_players_loop())
+
+    async def check_players_loop(self):
+        await self.wait_until_ready()
+        channel = None
+        for guild in self.guilds:
+            channel = discord.utils.get(guild.text_channels,
+                                        id=1020828997359243307)
+            if channel:
+                break
+
+        if not channel:
+            print(
+                "❌ Could not find the text channel. Check CHANNEL_ID and bot permissions."
+            )
+            return
+
+        cooldown_seconds = 120
+
+        while not self.is_closed():
+            try:
+                print("🔁 Checking player list...")
+                server = JavaServer.lookup(SERVER_IP)
+                status = server.status()
+                sample = status.players.sample or []
+                current_players = set(p.name for p in sample)
+
+                # Players who joined and left
+                joined_players = current_players - self.previous_players
+                left_players = self.previous_players - current_players
+
+                now = time.time()
+
+                # Announce joins with cooldown
+                for player in joined_players:
+                    last_time = self.last_announce.get(player, 0)
+                    if now - last_time > cooldown_seconds:
+                        if player == "MilD":
+                            await channel.send("l7aj d5l... sahkno lserver 🌋")
+                        else:
+                            await channel.send(f"`{player}` d5l 🔥 ")
+                        self.last_announce[player] = now
+
+                # Announce leaves with cooldown
+                for player in left_players:
+                    last_time = self.last_announce.get(player, 0)
+                    if now - last_time > cooldown_seconds:
+                        if player == "MilD":
+                            await channel.send("l7aj khrej 😢")
+                        else:
+                            await channel.send(f"`{player}` khrej.")
+                        self.last_announce[player] = now
+
+                self.previous_players = current_players
+
+            except Exception as e:
+                print(f"[ERROR in player checker] {e}")
+
+            await asyncio.sleep(15)
+
 
 @client.event
 async def on_ready():
@@ -71,7 +123,6 @@ async def on_message(message):
             player_sample = status.players.sample or []
             player_list = [p.name for p in player_sample]
             online_count = status.players.online
-            max_players = status.players.max
 
             # Greeting depending on who sent the message
             if message.author.id == YOUR_DISCORD_ID:
@@ -84,7 +135,7 @@ async def on_message(message):
             response = f"{greeting}\n👥 online: {online_count}\n"
 
             if YOUR_MC_NAME in player_list:
-                response += f"Khalid Ibn lMalid 😎\n"
+                response += "Khalid Ibn lMalid 😎\n"
 
             if others:
                 response += "🤓: " + ", ".join(others)
@@ -97,6 +148,12 @@ async def on_message(message):
             await message.channel.send("Error.")
             print(f"[ERROR] {e}")
 
+
 keep_alive()
-client.loop.create_task(check_players_loop())
+
+client = MyClient(intents=intents)
+
+if TOKEN is None:
+    raise ValueError("DISCORD_BOT_TOKEN environment variable is not set!")
+
 client.run(TOKEN)
