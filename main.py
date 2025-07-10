@@ -45,6 +45,44 @@ class MyClient(discord.Client):
     async def setup_hook(self):
         self.loop.create_task(self.check_players_loop())
 
+    async def on_ready(self):
+        print(f"✅ Bot connected as {self.user}")
+
+    async def on_message(self, message):
+        if message.author.bot:
+            return
+
+        if message.content.startswith("!players"):
+            try:
+                server = JavaServer.lookup(SERVER_IP)
+                status = server.status()
+
+                player_sample = status.players.sample or []
+                player_list = [p.name for p in player_sample]
+                online_count = status.players.online
+
+                if message.author.id == YOUR_DISCORD_ID:
+                    greeting = "wch l7aj, haylik l7ala:"
+                else:
+                    greeting = "ya5i noob, ed5l fjeu direct 3lah tch9ini"
+
+                others = [p for p in player_list if p != YOUR_MC_NAME]
+                response = f"{greeting}\n👥 online: {online_count}\n"
+
+                if YOUR_MC_NAME in player_list:
+                    response += "Khalid Ibn lMalid 😎\n"
+
+                if others:
+                    response += "🤓: " + ", ".join(others)
+                elif YOUR_MC_NAME not in player_list:
+                    response += "mkan 7ta wa7ed 😢."
+
+                await message.channel.send(response)
+
+            except Exception as e:
+                await message.channel.send("Error.")
+                print(f"[ERROR] {e}")
+
     async def check_players_loop(self):
         await self.wait_until_ready()
         channel = None
@@ -102,51 +140,6 @@ class MyClient(discord.Client):
                 print(f"[ERROR in player checker] {e}")
 
             await asyncio.sleep(15)
-
-
-@client.event
-async def on_ready():
-    print(f"✅ Bot connected as {client.user}")
-
-
-@client.event
-async def on_message(message):
-    if message.author.bot:
-        return
-
-    if message.content.startswith("!players"):
-        try:
-            server = JavaServer.lookup(SERVER_IP)
-            status = server.status()
-
-            # Get list of player names (if available)
-            player_sample = status.players.sample or []
-            player_list = [p.name for p in player_sample]
-            online_count = status.players.online
-
-            # Greeting depending on who sent the message
-            if message.author.id == YOUR_DISCORD_ID:
-                greeting = "wch l7aj, haylik l7ala:"
-            else:
-                greeting = "ya5i noob, ed5l fjeu direct 3lah tch9ini"
-
-            # Separate your username from others
-            others = [p for p in player_list if p != YOUR_MC_NAME]
-            response = f"{greeting}\n👥 online: {online_count}\n"
-
-            if YOUR_MC_NAME in player_list:
-                response += "Khalid Ibn lMalid 😎\n"
-
-            if others:
-                response += "🤓: " + ", ".join(others)
-            elif YOUR_MC_NAME not in player_list:
-                response += "mkan 7ta wa7ed 😢."
-
-            await message.channel.send(response)
-
-        except Exception as e:
-            await message.channel.send("Error.")
-            print(f"[ERROR] {e}")
 
 
 keep_alive()
